@@ -28,9 +28,9 @@ pipeline {
                                           usernameVariable: 'HARBOR_USER',
                                           passwordVariable: 'HARBOR_PASS')]) {
           sh '''
-            echo "$HARBOR_PASS" | docker login ${HARBOR_REGISTRY} -u "$HARBOR_USER" --password-stdin
-            docker push ${FULL_IMAGE}
-            docker logout ${HARBOR_REGISTRY}
+            echo "$HARBOR_PASS" | docker login "$HARBOR_REGISTRY" -u "$HARBOR_USER" --password-stdin
+            docker push "$FULL_IMAGE"
+            docker logout "$HARBOR_REGISTRY"
           '''
         }
       }
@@ -39,7 +39,11 @@ pipeline {
     stage('Helm template') {
       steps {
         withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-          sh "helm template ${IMAGE_NAME} ./helm --set image.tag=${IMAGE_TAG}"
+          sh '''
+            helm template "$IMAGE_NAME" ./helm \
+              --set image.repository="$HARBOR_REGISTRY/$HARBOR_PROJECT/$IMAGE_NAME" \
+              --set image.tag="$IMAGE_TAG"
+          '''
         }
       }
     }
@@ -47,7 +51,12 @@ pipeline {
     stage('Helm upgrade') {
       steps {
         withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-          sh "helm upgrade --install ${IMAGE_NAME} ./helm --set image.tag=${IMAGE_TAG} --namespace default"
+          sh '''
+            helm upgrade --install "$IMAGE_NAME" ./helm \
+              --set image.repository="$HARBOR_REGISTRY/$HARBOR_PROJECT/$IMAGE_NAME" \
+              --set image.tag="$IMAGE_TAG" \
+              --namespace default
+          '''
         }
       }
     }
@@ -55,7 +64,7 @@ pipeline {
 
   post {
     always {
-      sh 'docker rmi ${FULL_IMAGE} || true'
+      sh 'docker rmi "$FULL_IMAGE" || true'
     }
   }
 }
