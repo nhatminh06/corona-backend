@@ -4,18 +4,24 @@ pipeline {
   environment {
     HARBOR_REGISTRY = 'harbor.lab:8080'
     HARBOR_PROJECT  = 'library'
-    IMAGE_NAME      = 'corona-backend'
+    IMAGE_NAME      = 'corona-frontend'
     IMAGE_TAG       = "${env.BUILD_NUMBER}"
     FULL_IMAGE      = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}"
   }
 
   stages {
     stage('Checkout') {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
+
     stage('Build Docker image') {
-      steps { sh "docker build -t ${FULL_IMAGE} ." }
+      steps {
+        sh "docker build -t ${FULL_IMAGE} ."
+      }
     }
+
     stage('Push to Harbor') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'harbor-creds',
@@ -29,9 +35,27 @@ pipeline {
         }
       }
     }
+
+    stage('Helm template') {
+      steps {
+        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+          sh "helm template ${IMAGE_NAME} ./helm --set image.tag=${IMAGE_TAG}"
+        }
+      }
+    }
+
+    stage('Helm upgrade') {
+      steps {
+        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+          sh "helm upgrade --install ${IMAGE_NAME} ./helm --set image.tag=${IMAGE_TAG} --namespace default"
+        }
+      }
+    }
   }
 
   post {
-    always { sh 'docker rmi ${FULL_IMAGE} || true' }
+    always {
+      sh 'docker rmi ${FULL_IMAGE} || true'
+    }
   }
 }
