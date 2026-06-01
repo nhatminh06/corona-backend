@@ -16,6 +16,19 @@ pipeline {
     stage('Build Docker image') {
       steps { sh "docker build -t ${FULL_IMAGE} ." }
     }
+    stage('Push to Harbor') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'harbor-creds',
+                                          usernameVariable: 'HARBOR_USER',
+                                          passwordVariable: 'HARBOR_PASS')]) {
+          sh '''
+            echo "$HARBOR_PASS" | docker login ${HARBOR_REGISTRY} -u "$HARBOR_USER" --password-stdin
+            docker push ${FULL_IMAGE}
+            docker logout ${HARBOR_REGISTRY}
+          '''
+        }
+      }
+    }
   }
 
   post {
