@@ -1,0 +1,31 @@
+image:
+  repository: harbor.lab:8080/library/corona-backend
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+containerPort: 8080
+
+service:
+  type: NodePort
+  port: 8080
+  nodePort: 30081
+
+imagePullSecret: harbor-cred
+
+hpa:
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPU: 70
+
+config:
+  PORT: "8080"
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
