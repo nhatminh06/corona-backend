@@ -1,5 +1,5 @@
 pipeline {
-  agent { label 'linux' }
+  agent any
 
   environment {
     HARBOR_REGISTRY = 'harbor.lab:8080'
