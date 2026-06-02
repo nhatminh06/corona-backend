@@ -18,7 +18,7 @@ pipeline {
 
     stage('Build Docker image') {
       steps {
-        sh "docker build -t ${FULL_IMAGE} ."
+        sh "docker build --add-host=nexus.lab:10.146.183.167 -t ${FULL_IMAGE} ."
       }
     }
 
