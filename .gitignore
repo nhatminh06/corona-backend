@@ -40,3 +40,11 @@ target/
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+
+# files fetched from Nexus at build time
+settings.xml
+.npmrc
+chart.tgz
+corona-backend/
+corona-frontend/
+
