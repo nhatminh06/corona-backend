@@ -1,14 +1,17 @@
-FROM harbor.lab:8080/library/node:13.12.0-alpine
-WORKDIR /app
-ENV PATH /app/node_modules/.bin:$PATH
-COPY .npmrc ./
-COPY package.json ./
-COPY package-lock.json ./
-RUN npm install --silent
-RUN npm install react-scripts@3.4.1 -g --silent
-COPY . ./
+FROM harbor.lab:8080/library/maven:3.8-openjdk-11 AS build
+WORKDIR /build
+COPY settings.xml /root/.m2/settings.xml
+COPY pom.xml .
+COPY src ./src
+RUN mvn clean package -DskipTests --settings /root/.m2/settings.xml
 
-# Run as non-root (node:alpine has a built-in `node` user)
-USER node
+FROM harbor.lab:8080/library/openjdk11:jdk-11.0.2.9-slim
+ENV PORT 8080
+COPY --from=build /build/target/*.jar /opt/app.jar
+WORKDIR /opt
 
-CMD ["npm", "start"]
+# Run as non-root
+RUN useradd -r -u 1000 -g root appuser
+USER appuser
+
+ENTRYPOINT exec java $JAVA_OPTS -jar app.jar
