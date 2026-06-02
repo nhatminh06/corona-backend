@@ -7,12 +7,28 @@ pipeline {
     IMAGE_NAME      = 'corona-backend'
     IMAGE_TAG       = "${env.BUILD_NUMBER}"
     FULL_IMAGE      = "${HARBOR_REGISTRY}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}"
+    NEXUS_BASE      = 'http://nexus.lab:8081'
+    CHART_NAME      = 'corona-backend'
+    CHART_VERSION   = '0.1.0'
   }
 
   stages {
     stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('Fetch build config from Nexus') {
       steps {
-        checkout scm
+        withCredentials([usernamePassword(credentialsId: 'nexus-creds',
+                                          usernameVariable: 'NEXUS_USER',
+                                          passwordVariable: 'NEXUS_PASS')]) {
+          sh '''
+            curl -fsSL -u "$NEXUS_USER:$NEXUS_PASS" \
+              -o settings.xml \
+              ${NEXUS_BASE}/repository/build-config/maven/settings.xml
+            ls -la settings.xml
+          '''
+        }
       }
     }
 
@@ -36,10 +52,26 @@ pipeline {
       }
     }
 
+    stage('Fetch Helm chart from Nexus') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'nexus-creds',
+                                          usernameVariable: 'NEXUS_USER',
+                                          passwordVariable: 'NEXUS_PASS')]) {
+          sh '''
+            curl -fsSL -u "$NEXUS_USER:$NEXUS_PASS" \
+              -o chart.tgz \
+              ${NEXUS_BASE}/repository/helm-charts/${CHART_NAME}-${CHART_VERSION}.tgz
+            tar -xzf chart.tgz
+            ls -la ${CHART_NAME}/
+          '''
+        }
+      }
+    }
+
     stage('Helm template') {
       steps {
         withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-          sh "helm template ${IMAGE_NAME} ./helm --set image.tag=${IMAGE_TAG}"
+          sh "helm template ${IMAGE_NAME} ./${CHART_NAME} --set image.tag=${IMAGE_TAG}"
         }
       }
     }
@@ -47,7 +79,7 @@ pipeline {
     stage('Helm upgrade') {
       steps {
         withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-          sh "helm upgrade --install ${IMAGE_NAME} ./helm --set image.tag=${IMAGE_TAG} --namespace default"
+          sh "helm upgrade --install ${IMAGE_NAME} ./${CHART_NAME} --set image.tag=${IMAGE_TAG} --namespace default"
         }
       }
     }
@@ -56,6 +88,7 @@ pipeline {
   post {
     always {
       sh 'docker rmi ${FULL_IMAGE} || true'
+      sh 'rm -rf settings.xml chart.tgz corona-backend/ || true'
     }
   }
 }
