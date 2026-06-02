@@ -10,11 +10,45 @@ pipeline {
     NEXUS_BASE      = 'http://nexus.lab:8081'
     CHART_NAME      = 'corona-backend'
     CHART_VERSION   = '0.1.0'
+    SONAR_HOST      = 'http://sonarqube.lab:9000'
   }
 
   stages {
     stage('Checkout') {
       steps { checkout scm }
+    }
+
+    stage('Security: secret scan (gitleaks)') {
+      steps {
+        sh '''
+          gitleaks detect --source . --no-banner --redact --exit-code 1 || \
+            { echo "Gitleaks found secrets — failing build"; exit 1; }
+        '''
+      }
+    }
+
+    stage('Security: SAST (semgrep)') {
+      steps {
+        sh '''
+          semgrep --config=auto --error --severity=ERROR --quiet . || \
+            { echo "Semgrep found high-severity issues — failing build"; exit 1; }
+        '''
+      }
+    }
+
+    stage('Security: code quality (sonarqube)') {
+      steps {
+        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+          sh '''
+            # SonarQube needs compiled classes — quick compile on the agent
+            # (the real build still happens in the Docker container)
+            mvn -B compile -DskipTests || true
+            sonar-scanner \
+              -Dsonar.host.url=${SONAR_HOST} \
+              -Dsonar.token=${SONAR_TOKEN}
+          '''
+        }
+      }
     }
 
     stage('Fetch build config from Nexus') {
@@ -26,7 +60,6 @@ pipeline {
             curl -fsSL -u "$NEXUS_USER:$NEXUS_PASS" \
               -o settings.xml \
               ${NEXUS_BASE}/repository/build-config/maven/settings.xml
-            ls -la settings.xml
           '''
         }
       }
@@ -62,7 +95,6 @@ pipeline {
               -o chart.tgz \
               ${NEXUS_BASE}/repository/helm-charts/${CHART_NAME}-${CHART_VERSION}.tgz
             tar -xzf chart.tgz
-            ls -la ${CHART_NAME}/
           '''
         }
       }
