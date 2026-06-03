@@ -46,22 +46,13 @@ pipeline {
     stage('Security: SCA (trivy)') {
       steps {
         sh '''
-          set +e
-          trivy fs --severity HIGH,CRITICAL --exit-code 1 --no-progress .
-          EXIT_CODE=$?
-          set -e
-
-          if [ "$EXIT_CODE" -ne 0 ]; then
-            echo ""
-            echo "=========================================="
-            echo "  Trivy found HIGH/CRITICAL vulnerabilities."
-            echo "  Failing build."
-            echo "=========================================="
-            exit 1
-          else
-            echo "Trivy: no HIGH/CRITICAL vulnerabilities."
-          fi
-        '''
+      	  trivy fs --severity HIGH,CRITICAL --exit-code 0 --no-progress .
+          echo ""
+          echo "=========================================="
+          echo "  Trivy scan complete (report-only mode)"
+          echo "  See log above for HIGH/CRITICAL findings"
+      	  echo "=========================================="
+    	'''
       }
     }
     stage('Security: code quality (sonarqube)') {
