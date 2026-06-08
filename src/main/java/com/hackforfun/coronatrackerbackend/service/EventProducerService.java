@@ -1,4 +1,4 @@
-'package com.hackforfun.coronatrackerbackend.service;
+package com.hackforfun.coronatrackerbackend.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

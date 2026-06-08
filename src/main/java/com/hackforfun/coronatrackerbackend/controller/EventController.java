@@ -2,9 +2,15 @@ package com.hackforfun.coronatrackerbackend.controller;
 
 import com.hackforfun.coronatrackerbackend.service.EventProducerService;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -35,22 +41,23 @@ public class EventController {
             type + ":" + Instant.now());
         redis.opsForList().trim("corona-backend:recent-events", 0, 99);
 
-        return Map.of(
-            "status", "published",
-            "topic", "corona-events",
-            "type", type,
-            "timestamp", Instant.now().toString()
-        );
+        Map<String, Object> result = new HashMap<>();
+        result.put("status", "published");
+        result.put("topic", "corona-events");
+        result.put("type", type);
+        result.put("timestamp", Instant.now().toString());
+        return result;
     }
 
     @GetMapping("/events/stats")
     public Map<String, Object> getStats() {
         String published = redis.opsForValue()
             .get("corona-backend:events:published");
-        return Map.of(
-            "service", "corona-backend",
-            "eventsPublished", published != null ? published : "0",
-            "topic", "corona-events"
-        );
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("service", "corona-backend");
+        result.put("eventsPublished", published != null ? published : "0");
+        result.put("topic", "corona-events");
+        return result;
     }
 }
